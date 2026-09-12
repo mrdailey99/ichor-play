@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ichor</title>
+<style>
+  /* Ichor's own web shell (P1-19), not Godot's stock black page and
+     progress bar. Colours come from game/src/ui/palette.gd so the loading
+     screen never clashes with the title screen it hands off to.
+     --ichor-ground matches Palette.DEEP_FOREST darkened 30%, the exact
+     tone MainMenu paints behind itself (game/src/ui/main_menu.gd), so
+     there is no flash of a different dark while the engine boots. */
+  :root {
+    --ichor-ground: #192416;
+    --ichor-ink: #14110f;
+    --ichor-parchment: #e8d9b5;
+    --ichor-gold: #d9a441;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--ichor-ground);
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* No network font requests. Cinzel and Alegreya Sans (the game's own
+       fonts, game/assets/fonts) are only loaded once the engine starts;
+       a serif system stack stands in for the brief shell page. */
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  #canvas {
+    display: block;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--ichor-ground);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  #canvas.ichor-visible {
+    opacity: 1;
+  }
+  #ichor-shell {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px;
+    text-align: center;
+    transition: opacity 0.5s ease;
+  }
+  #ichor-shell.ichor-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #ichor-title {
+    margin: 0;
+    font-size: 56px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--ichor-gold);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+  #ichor-subtitle {
+    margin: -12px 0 8px;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--ichor-parchment);
+    opacity: 0.85;
+  }
+  #ichor-bar-track {
+    width: min(360px, 70vw);
+    height: 10px;
+    border: 1px solid var(--ichor-gold);
+    border-radius: 5px;
+    background: var(--ichor-ink);
+    overflow: hidden;
+  }
+  #ichor-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--ichor-gold);
+    transition: width 0.2s ease;
+  }
+  #ichor-status {
+    margin: 0;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: var(--ichor-parchment);
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="ichor-shell">
+  <h1 id="ichor-title">Ichor</h1>
+  <p id="ichor-subtitle">Blood of the Gods</p>
+  <div id="ichor-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div id="ichor-bar-fill"></div>
+  </div>
+  <p id="ichor-status">Loading the realms</p>
+</div>
+<script>
+  const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index.dda658c-119","experimentalVK":false,"fileSizes":{"index.dda658c-119.pck":54310932,"index.dda658c-119.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+  const GODOT_THREADS_ENABLED = false;
+</script>
+<script src="index.dda658c-119.js"></script>
+<script>
+(function () {
+  "use strict";
+  var FALLBACK_MESSAGE = "Your browser could not start the game. Try Chrome, Edge or Firefox.";
+  var statusEl = document.getElementById("ichor-status");
+  var fillEl = document.getElementById("ichor-bar-fill");
+  var trackEl = document.getElementById("ichor-bar-track");
+  var shellEl = document.getElementById("ichor-shell");
+  var canvasEl = document.getElementById("canvas");
+
+  function setStatus(text) {
+    statusEl.textContent = text;
+  }
+
+  // Godot calls this during startGame() with byte counts as they arrive.
+  // A total of 0 means the size is not known yet, not that loading is done.
+  function onProgress(current, total) {
+    var pct = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 100;
+    fillEl.style.width = pct + "%";
+    trackEl.setAttribute("aria-valuenow", String(pct));
+    if (total <= 0 || current >= total) {
+      setStatus("Starting");
+    }
+  }
+
+  function fail(err) {
+    if (err && window.console && console.error) {
+      console.error(err);
+    }
+    setStatus(FALLBACK_MESSAGE);
+  }
+
+  if (typeof Engine === "undefined" || !Engine.isWebGLAvailable()) {
+    fail(null);
+  } else {
+    var engine = new Engine(GODOT_CONFIG);
+    engine.startGame({
+      onProgress: onProgress
+    }).then(function () {
+      canvasEl.classList.add("ichor-visible");
+      shellEl.classList.add("ichor-hidden");
+    }, fail);
+  }
+})();
+</script>
+</body>
+</html>
+
